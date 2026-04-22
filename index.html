@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>How Well Do You Know Chani? 🎰</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Oswald:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCQUobxU6EgqIF2F0YZo3GZoLiycsWb6To",
+  authDomain: "do-you-know-chani.firebaseapp.com",
+  databaseURL: "https://do-you-know-chani-default-rtdb.firebaseio.com",
+  projectId: "do-you-know-chani",
+  storageBucket: "do-you-know-chani.firebasestorage.app",
+  messagingSenderId: "665461915065",
+  appId: "1:665461915065:web:7b2c061282de207be7ca68"
+};
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      const db  = getDatabase(app);
+      window._fb = { ref, set, onValue, update, get, db };
+    } catch(e) {
+      window._fbError = e.message;
+    }
+    window.dispatchEvent(new Event("firebase-ready"));
+  </script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Oswald',sans-serif;background:#f5ead6;}
+    input,textarea,button{font-family:inherit;}
+    @keyframes fall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+    @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+    @keyframes pulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
+    @keyframes spin{0%,100%{transform:rotate(0deg)}50%{transform:rotate(180deg)}}
+    @keyframes tp{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+    @keyframes popIn{0%{opacity:0;transform:scale(.7)}70%{transform:scale(1.07)}100%{opacity:1;transform:scale(1)}}
+    @keyframes snakeWiggle{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+    @keyframes slideLeft{0%{transform:translateX(0);opacity:1}100%{transform:translateX(-40px);opacity:.4}}
+    @keyframes slideRight{0%{transform:translateX(0);opacity:1}100%{transform:translateX(40px);opacity:.4}}
+    @keyframes tokenPulse{0%{transform:scale(1)}40%{transform:scale(1.5)}100%{transform:scale(1)}}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef}=React;
+
+const CREAM="#f5ead6",CREAM2="#ede0c4",DARK="#1a0a0a",RED="#8b1a1a",RED2="#c0392b",
+      CARD="#fff8f0",BORDER="#c8a97e",GOLD="#c9a84c",MUTED="#7a5c3a";
+const PF={fontFamily:"'Playfair Display',Georgia,serif"};
+const OW={fontFamily:"'Oswald',sans-serif"};
+const btn=(x={})=>({border:"none",cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:2,textTransform:"uppercase",borderRadius:3,transition:"all .2s",...x});
+
+const PLAYERS=["Carla","Jessica","Kelli","Mariana","Rosie","Rubi"];
+const TOKEN_COLORS=["#8b1a1a","#1a4a8a","#2d6a2d","#6a2d6a","#8b6914","#1a5a6a"];
+const SUITS=["♠","♥","♣","♦"];
+const TOTAL=30,COLS=6,ROWS=5;
+
+/* Different point values per question */
+const Q_POINTS=[3,2,4,5,3,2,4,3,5,4,3,5,4,3,5];
+
+/* Snakes: head -> tail (go DOWN)
+   26→16, 29→19, 13→2
+   Ladders: bottom → top (go UP)
+   3→15, 11→23, 8→17 */
+const SNAKES={26:16, 29:19, 13:2};
+const LADDERS={3:15, 11:23, 8:17};
+
+const QUESTIONS=[
+  {id:1, type:"mc",     text:"What is Chani's go-to comfort food when she's had a rough day?",
+    opts:["Soup","Tacos","Pizza","Sushi"], answer:"Soup"},
+  {id:2, type:"mc",     text:"Which city has been Chani's favorite travel destination so far?",
+    opts:["Paris","Budapest","Tokyo","Rome"], answer:"Budapest"},
+  {id:3, type:"mc",     text:"What would Chani most likely order at a fancy restaurant?",
+    opts:["Wine & charcuterie","Cocktail & steak","Restaurant specialty","Beer & burger"], answer:"Restaurant specialty"},
+  {id:4, type:"mc",     text:"How did Chani and her fiancé first meet?",
+    opts:["Through mutual friends","At work","On a dating app","At a party"], answer:"Through mutual friends"},
+  {id:5, type:"mc",     text:"What is Chani's love language?",
+    opts:["Words of affirmation","Acts of service","Quality time","Gift giving"], answer:"Words of affirmation"},
+  {id:6, type:"mc",     text:"What does Chani cook most often at home?",
+    opts:["Italian","Mexican","Asian fusion","Chani doesn't cook"], answer:"Chani doesn't cook"},
+  {id:7, type:"mc",     text:"Where is Chani's dream honeymoon destination?",
+    opts:["Maldives","Santorini, Greece","Australia","Bali, Indonesia"], answer:"Australia"},
+  {id:8, type:"mc",     text:"What is Chani's biggest travel pet peeve?",
+    opts:["Flight delays","Itinerary change","Bad hotel Wi-Fi","No good food options"], answer:"Itinerary change"},
+  {id:9, type:"mc", text:"What is the name of Chani's fiancé?",
+    opts:["Tyler","Carlos","Alex","Miguel"], answer:"Tyler"},
+  {id:10,type:"mc", text:"What is Chani's signature dish — the one she's most proud of making?",
+    opts:["Chicken and mushroom pasta","Tacos al pastor","Beef stew","Shrimp stir-fry"], answer:"Chicken and mushroom pasta"},
+  {id:11,type:"mc", text:"How many countries has Chani visited?",
+    opts:["12","15","20","25"], answer:"20"},
+  {id:12,type:"mc", text:"What was the first trip Chani and her fiancé ever took together?",
+    opts:["Fredericksburg","New Orleans","Miami","San Antonio"], answer:"Fredericksburg"},
+  {id:13,type:"mc", text:"What is Chani's all-time favorite restaurant?",
+    opts:["Mazens","Nobu","Carbone","Uchi"], answer:"Mazens"},
+  {id:14,type:"mc", text:"Fill in the blank: Chani can't travel without her ______.",
+    opts:["Backpack full of pockets","Silk eye mask","Noise-cancelling headphones","Neck pillow"], answer:"Backpack full of pockets"},
+  {id:15,type:"mc", text:"What food does Chani absolutely refuse to eat?",
+    opts:["Cilantro","Mushrooms","Blue cheese","Olives"], answer:"Cilantro"},
+];
+
+/* Board helper: 5 rows x 6 cols boustrophedon */
+function cellNum(row,col){
+  const r=ROWS-1-row;
+  return r%2===0?r*COLS+col+1:r*COLS+(COLS-col);
+}
+function checkAns(q,ans){
+  if(!q||!q.answer)return false;
+  const c=q.answer.toLowerCase().trim(),g=(ans||"").toLowerCase().trim();
+  if(!g)return false;
+  return q.type==="mc"?g===c:g===c||c.includes(g)||g.includes(c);
+}
+function initScores(){
+  const o={};
+  PLAYERS.forEach((p,i)=>{o[p]={score:0,pos:0,color:TOKEN_COLORS[i],finishRound:null};});
+  return o;
+}
+function getPoints(qIdx){return Q_POINTS[qIdx]||2;}
+
+/* ── Splash ── */
+function Splash({msg}){
+  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:DARK,color:GOLD,...PF,fontSize:"1.2rem",textAlign:"center",padding:20}}>{msg}</div>;
+}
+
+/* ── Firebase Setup ── */
+function FirebaseSetup(){
+  return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:DARK,padding:24}}>
+      <div style={{maxWidth:560,width:"100%",background:"rgba(201,168,76,.07)",border:`2px solid ${GOLD}`,borderRadius:16,padding:28,color:CREAM,...PF}}>
+        <div style={{fontSize:"1.5rem",color:GOLD,marginBottom:8,...OW,letterSpacing:2}}>One-Time Firebase Setup</div>
+        <p style={{opacity:.85,marginBottom:16,lineHeight:1.7,fontSize:"0.93rem"}}>This game needs a free Firebase Realtime Database for real-time sync.</p>
+        <ol style={{paddingLeft:20,lineHeight:2.2,fontSize:"0.9rem",opacity:.9}}>
+          <li>Go to <a href="https://console.firebase.google.com" target="_blank" style={{color:GOLD}}>console.firebase.google.com</a> → Add project → disable Analytics → Create project.</li>
+          <li>Build → Realtime Database → Create database → Start in test mode → Enable.</li>
+          <li>Gear → Project settings → web icon → copy firebaseConfig.</li>
+          <li>Open this file in a text editor, paste your config, re-upload to Netlify. Done!</li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+/* ── QR Code ── */
+function QRBox(){
+  const playerUrl=window.location.origin+window.location.pathname+"?view=player";
+  const divRef=useRef(null);
+  const objRef=useRef(null);
+  useEffect(()=>{
+    if(divRef.current&&!objRef.current){
+      objRef.current=new QRCode(divRef.current,{text:playerUrl,width:110,height:110,colorDark:DARK,colorLight:CREAM,correctLevel:QRCode.CorrectLevel.M});
+    }
+  },[]);
+  return(
+    <div style={{background:CREAM,border:`2px solid ${BORDER}`,borderRadius:8,padding:10,textAlign:"center"}}>
+      <div style={{fontSize:"0.58rem",letterSpacing:2,color:RED,textTransform:"uppercase",marginBottom:6,...OW}}>Players Scan to Join</div>
+      <div ref={divRef} style={{display:"inline-block",padding:4,background:CREAM,borderRadius:4,border:`1px solid ${BORDER}`}}/>
+      <div style={{fontSize:"0.5rem",color:MUTED,marginTop:4,...OW,letterSpacing:1,wordBreak:"break-all"}}>{playerUrl}</div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   REVEAL POPUP — shows correct answer first, then on
+   "Continue" the host triggers movement popup
+══════════════════════════════════════════════════════ */
+function RevealPopup({q, pts, onContinue}){
+  if(!q)return null;
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,.82)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:CREAM,border:`4px solid ${RED}`,borderRadius:20,padding:"32px 36px",maxWidth:520,width:"100%",textAlign:"center",animation:"popIn .4s ease",boxShadow:"0 24px 80px rgba(0,0,0,.6)"}}>
+        <div style={{...OW,fontSize:"0.7rem",letterSpacing:4,color:RED,marginBottom:10}}>✓ CORRECT ANSWER</div>
+        <div style={{...PF,fontSize:"2rem",fontWeight:900,color:RED,lineHeight:1.15,marginBottom:8}}>{q.answer||"(not set)"}</div>
+        {q.type==="mc"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:14,textAlign:"left"}}>
+            {q.opts.map((opt,i)=>{
+              const correct=opt.toLowerCase()===(q.answer||"").toLowerCase();
+              return(
+                <div key={i} style={{background:correct?"rgba(45,106,45,.12)":"rgba(139,26,26,.05)",border:`1.5px solid ${correct?"#2d6a2d":BORDER}`,borderRadius:6,padding:"8px 12px",fontSize:"0.85rem",color:correct?"#2d6a2d":DARK,fontWeight:correct?700:400}}>
+                  <span style={{...OW,fontWeight:700,color:correct?"#2d6a2d":RED,marginRight:6}}>{["A","B","C","D"][i]})</span>{opt}{correct&&" ✓"}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div style={{...OW,fontSize:"0.7rem",background:RED,color:"#fff",borderRadius:20,padding:"3px 14px",display:"inline-block",marginBottom:20}}>+{pts} pts correct · -{Math.ceil(pts/2)} pts wrong</div>
+        <br/>
+        <button onClick={onContinue} style={btn({background:RED,color:"#fff",padding:"14px 40px",fontSize:"1rem",fontWeight:700,letterSpacing:3,boxShadow:"0 4px 16px rgba(139,26,26,.35)"})}>
+          CONTINUE →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   MOVEMENT POPUP — leaderboard update only (no callouts)
+══════════════════════════════════════════════════════ */
+function MovementPopup({events, sorted, scores, onClose}){
+  if(!sorted||sorted.length===0)return null;
+  const medals=["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣","7️⃣"];
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.82)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:CREAM,border:`4px solid ${RED}`,borderRadius:20,padding:"28px 36px",maxWidth:460,width:"100%",textAlign:"center",animation:"popIn .4s ease",boxShadow:"0 24px 80px rgba(0,0,0,.6)"}}>
+        <div style={{...PF,fontSize:"2rem",fontWeight:900,color:RED,marginBottom:4}}>Leaderboard</div>
+        <div style={{width:60,height:3,background:RED,margin:"0 auto 18px"}}/>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+          {sorted.map((name,i)=>{
+            const sc=scores[name]||{score:0,pos:0};
+            return(
+              <div key={name} style={{display:"flex",alignItems:"center",gap:10,background:i===0?CARD:CREAM2,border:`2px solid ${i===0?RED:BORDER}`,borderRadius:10,padding:"10px 16px",boxShadow:i===0?"0 2px 10px rgba(139,26,26,.18)":undefined}}>
+                <span style={{fontSize:"1.2rem",minWidth:30}}>{medals[i]||`${i+1}.`}</span>
+                <div style={{width:32,height:32,borderRadius:"50%",background:sc.color||"#888",flexShrink:0,border:`2px solid ${CREAM}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{...OW,fontWeight:700,fontSize:"0.85rem",color:"#fff"}}>{name[0]}</span>
+                </div>
+                <div style={{flex:1,textAlign:"left"}}>
+                  <div style={{...OW,fontSize:"0.85rem",letterSpacing:1,color:DARK,textTransform:"uppercase"}}>{name}</div>
+                  <div style={{...OW,fontSize:"0.6rem",color:MUTED}}>square {(sc.pos||0)+1}</div>
+                </div>
+                <div style={{...PF,fontSize:"1.2rem",color:RED,fontWeight:700}}>{sc.score} pts</div>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={onClose} style={btn({background:RED,color:"#fff",padding:"14px 40px",fontSize:"1rem",fontWeight:700,letterSpacing:3,width:"100%"})}>
+          NEXT QUESTION →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BOARD — Large SVG illustrated board for TV display
+   Layout: 5 rows × 6 cols = 30 squares, boustrophedon
+   Row 5 (bottom): 1–6  left→right
+   Row 4:          12–7 right→left
+   Row 3:          13–18 left→right
+   Row 2:          24–19 right→left
+   Row 1 (top):    25–30 left→right  (30 = goal, top-right)
+
+   Snakes  (head→tail, going down): 26→16, 29→19, 13→2
+   Ladders (bottom→top, going up):  3→15, 11→23, 8→17
+══════════════════════════════════════════════════════════════════════════ */
+function Board({scores}){
+  const containerRef=useRef(null);
+  const [dims,setDims]=useState({w:600,h:420});
+  useEffect(()=>{
+    if(!containerRef.current)return;
+    const ro=new ResizeObserver(entries=>{
+      for(const e of entries){
+        const cw=e.contentRect.width;
+        const ch=e.contentRect.height;
+        // Use actual container height; subtract title bar (~36px padding+border+text)
+        const availH=ch>80?ch-36:Math.round(cw*(5/6)*0.88);
+        setDims({w:Math.round(cw),h:Math.round(availH)});
+      }
+    });
+    ro.observe(containerRef.current);
+    return()=>ro.disconnect();
+  },[]);
+  const GAP=3, COLS_B=6, ROWS_B=5;
+  // Cell width from available width; cell height from available height
+  const CELLW=Math.floor((dims.w - GAP*(COLS_B-1)) / COLS_B);
+  const CELLH=Math.floor((dims.h - GAP*(ROWS_B-1)) / ROWS_B);
+  const CELL_W=CELLW, CELL_H=CELLH;
+  const W=COLS_B*CELLW+(COLS_B-1)*GAP;
+  const H=ROWS_B*CELLH+(ROWS_B-1)*GAP;
+
+  /* Square number → pixel center (rectangular cells) */
+  function sqCenter(n){
+    const rowFromBot=Math.floor((n-1)/COLS_B);
+    const posInRow=(n-1)%COLS_B;
+    const col=rowFromBot%2===0?posInRow:(COLS_B-1-posInRow);
+    const rowFromTop=ROWS_B-1-rowFromBot;
+    return{
+      cx:col*(CELL_W+GAP)+CELL_W/2,
+      cy:rowFromTop*(CELL_H+GAP)+CELL_H/2
+    };
+  }
+
+    /* ── Cartoonish SNAKE ── */
+  const CAVE=Math.max(8,Math.min(14,Math.round((CELL_W+CELL_H)/2*0.14)));
+  function Snake({from,to,bodyColor,accentColor,offsetX=0}){
+    const h=sqCenter(from), t=sqCenter(to);
+    const dx=h.cx-t.cx, dy=h.cy-t.cy;
+    const len=Math.sqrt(dx*dx+dy*dy);
+    const perp={x:-dy/len,y:dx/len};
+    const amp=Math.min(len*0.32,55)+offsetX;
+    const c1={x:t.cx+perp.x*amp,   y:t.cy+perp.y*amp};
+    const c2={x:h.cx+perp.x*amp*0.6, y:h.cy+perp.y*amp*0.6};
+    const path=`M${t.cx},${t.cy} C${c1.x},${c1.y} ${c2.x},${c2.y} ${h.cx},${h.cy}`;
+    const ang=Math.atan2(h.cy-c2.y,h.cx-c2.x);
+    const headR=CAVE;
+    const eyeX=h.cx+Math.cos(ang-0.5)*10, eyeY=h.cy+Math.sin(ang-0.5)*10;
+    const tBase={x:h.cx+Math.cos(ang)*headR,y:h.cy+Math.sin(ang)*headR};
+    const tFork=14;
+    return(
+      <g>
+        <path d={path} fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth={CAVE*1.35} strokeLinecap="round"/>
+        <path d={path} fill="none" stroke={bodyColor} strokeWidth={CAVE*1.2} strokeLinecap="round"/>
+        <path d={path} fill="none" stroke={accentColor} strokeWidth={CAVE*0.65} strokeLinecap="round" strokeDasharray="22 14"/>
+        <path d={path} fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth={2} strokeLinecap="round" strokeDasharray="7 15"/>
+        <circle cx={t.cx} cy={t.cy} r={CAVE*0.38} fill={bodyColor}/>
+        <circle cx={h.cx} cy={h.cy} r={headR+3} fill="rgba(0,0,0,0.2)"/>
+        <circle cx={h.cx} cy={h.cy} r={headR+2} fill="#1e5c1e"/>
+        <circle cx={h.cx} cy={h.cy} r={headR} fill={bodyColor}/>
+        <circle cx={eyeX} cy={eyeY} r={4.5} fill="#fff"/>
+        <circle cx={eyeX+0.5} cy={eyeY+0.8} r={2.5} fill="#111"/>
+        <circle cx={eyeX+1} cy={eyeY+0.3} r={0.8} fill="#fff"/>
+        <line x1={tBase.x} y1={tBase.y} x2={tBase.x+Math.cos(ang)*tFork*0.6} y2={tBase.y+Math.sin(ang)*tFork*0.6} stroke="#e74c3c" strokeWidth={3} strokeLinecap="round"/>
+        <line x1={tBase.x+Math.cos(ang)*tFork*0.6} y1={tBase.y+Math.sin(ang)*tFork*0.6} x2={tBase.x+Math.cos(ang-0.35)*tFork} y2={tBase.y+Math.sin(ang-0.35)*tFork} stroke="#e74c3c" strokeWidth={2} strokeLinecap="round"/>
+        <line x1={tBase.x+Math.cos(ang)*tFork*0.6} y1={tBase.y+Math.sin(ang)*tFork*0.6} x2={tBase.x+Math.cos(ang+0.35)*tFork} y2={tBase.y+Math.sin(ang+0.35)*tFork} stroke="#e74c3c" strokeWidth={2} strokeLinecap="round"/>
+      </g>
+    );
+  }
+  /* ── Illustrated LADDER ── */
+  function Ladder({from,to,color}){
+    const b=sqCenter(from), t=sqCenter(to);
+    const dx=t.cx-b.cx, dy=t.cy-b.cy;
+    const len=Math.sqrt(dx*dx+dy*dy);
+    const ux=dx/len, uy=dy/len;
+    const pw=Math.max(8,Math.min(16,Math.round((CELL_W+CELL_H)/2*0.13)));
+    const perp={x:-uy*pw,y:ux*pw};
+    const r1s={x:b.cx+perp.x,y:b.cy+perp.y};
+    const r1e={x:t.cx+perp.x,y:t.cy+perp.y};
+    const r2s={x:b.cx-perp.x,y:b.cy-perp.y};
+    const r2e={x:t.cx-perp.x,y:t.cy-perp.y};
+    const numRungs=Math.max(3,Math.round(len/Math.max(18,CELL_H*0.28)));
+    const rungs=[];
+    for(let i=0;i<=numRungs;i++){
+      const f=i/numRungs;
+      rungs.push({x1:r1s.x+f*(r1e.x-r1s.x),y1:r1s.y+f*(r1e.y-r1s.y),x2:r2s.x+f*(r2e.x-r2s.x),y2:r2s.y+f*(r2e.y-r2s.y)});
+    }
+    return(
+      <g>
+        {/* Shadow */}
+        <line x1={r1s.x+3} y1={r1s.y+3} x2={r1e.x+3} y2={r1e.y+3} stroke="rgba(0,0,0,0.2)" strokeWidth={8} strokeLinecap="round"/>
+        <line x1={r2s.x+3} y1={r2s.y+3} x2={r2e.x+3} y2={r2e.y+3} stroke="rgba(0,0,0,0.2)" strokeWidth={8} strokeLinecap="round"/>
+        {/* Rails */}
+        <line x1={r1s.x} y1={r1s.y} x2={r1e.x} y2={r1e.y} stroke={color} strokeWidth={7} strokeLinecap="round"/>
+        <line x1={r2s.x} y1={r2s.y} x2={r2e.x} y2={r2e.y} stroke={color} strokeWidth={7} strokeLinecap="round"/>
+        {/* Rail sheen */}
+        <line x1={r1s.x} y1={r1s.y} x2={r1e.x} y2={r1e.y} stroke="rgba(255,255,255,0.4)" strokeWidth={2.5} strokeLinecap="round"/>
+        <line x1={r2s.x} y1={r2s.y} x2={r2e.x} y2={r2e.y} stroke="rgba(255,255,255,0.4)" strokeWidth={2.5} strokeLinecap="round"/>
+        {/* Rungs */}
+        {rungs.map((rg,i)=>(
+          <g key={i}>
+            <line x1={rg.x1} y1={rg.y1} x2={rg.x2} y2={rg.y2} stroke="rgba(0,0,0,0.15)" strokeWidth={5} strokeLinecap="round"/>
+            <line x1={rg.x1} y1={rg.y1} x2={rg.x2} y2={rg.y2} stroke={color} strokeWidth={4} strokeLinecap="round"/>
+            <line x1={rg.x1} y1={rg.y1} x2={rg.x2} y2={rg.y2} stroke="rgba(255,255,255,0.25)" strokeWidth={1.5} strokeLinecap="round"/>
+          </g>
+        ))}
+        {/* Top cap */}
+        <circle cx={t.cx} cy={t.cy} r={9} fill={color} stroke="#fff" strokeWidth={2}/>
+        <text x={t.cx} y={t.cy+5} textAnchor="middle" fontSize="10" fill="#fff" fontWeight="bold">↑</text>
+      </g>
+    );
+  }
+
+  /* Cell grid — rectangular cells */
+  const numSz=Math.max(11,Math.min(20,Math.round(CELL_W*0.22)));
+  const suitSz=Math.max(16,Math.min(32,Math.round(CELL_W*0.32)));
+  const trophySz=Math.max(20,Math.min(42,Math.round(CELL_H*0.45)));
+  const cellEls=[];
+  for(let r=0;r<ROWS_B;r++){
+    for(let c=0;c<COLS_B;c++){
+      const n=cellNum(r,c);
+      const isStart=n===1, isEnd=n===TOTAL;
+      const rowFromBot=ROWS_B-1-r;
+      const isEvenRow=rowFromBot%2===0;
+      let bg=isEvenRow?"#faf0e0":"#f0e4c8";
+      if(isEnd)bg="#8b1a1a";
+      if(isStart)bg="#e8d8b4";
+      const x=c*(CELL_W+GAP), y=r*(CELL_H+GAP);
+      cellEls.push(
+        <g key={n}>
+          <rect x={x} y={y} width={CELL_W} height={CELL_H} fill={bg}
+            stroke={isEnd?"#5a0a0a":BORDER} strokeWidth={isEnd?2.5:1.5} rx={4}/>
+          <text x={x+6} y={y+numSz+3} fontSize={numSz} fontWeight="800"
+            fill={isEnd?"#fff":isStart?"#8b1a1a":"#5a3a1a"}
+            fontFamily="'Oswald',sans-serif">{n}</text>
+          {!isEnd&&<text x={x+CELL_W/2} y={y+CELL_H/2+suitSz*0.35} textAnchor="middle"
+            fontSize={suitSz} fill="rgba(139,26,26,0.07)" fontFamily="Georgia,serif">
+            {["♠","♥","♣","♦"][n%4]}
+          </text>}
+          {isEnd&&<text x={x+CELL_W/2} y={y+CELL_H/2+trophySz*0.4} textAnchor="middle" fontSize={trophySz}>🏆</text>}
+        </g>
+      );
+    }
+  }
+
+  /* Player tokens — animated movement */
+  const TR=Math.max(9,Math.min(16,Math.round(CELL_W*0.16)));
+  const TOFF=Math.round(TR*1.05);
+  const prevPosRef=useRef({});
+  const [animating,setAnimating]=useState({});
+
+  // Detect position changes and trigger animation
+  useEffect(()=>{
+    const newAnim={};
+    PLAYERS.forEach(name=>{
+      const newSq=(scores[name]?.pos||0)+1;
+      const oldSq=prevPosRef.current[name];
+      if(oldSq!==undefined&&oldSq!==newSq) newAnim[name]=true;
+    });
+    if(Object.keys(newAnim).length>0){
+      setAnimating(newAnim);
+      setTimeout(()=>setAnimating({}),700);
+    }
+    PLAYERS.forEach(name=>{ prevPosRef.current[name]=(scores[name]?.pos||0)+1; });
+  },[scores]);
+
+  const tokenEls=PLAYERS.flatMap(name=>{
+    const sq=(scores[name]?.pos||0)+1;
+    const {cx,cy}=sqCenter(sq);
+    const here=PLAYERS.filter(p=>((scores[p]?.pos||0)+1)===sq);
+    const slot=here.indexOf(name);
+    const offsets=[{dx:0,dy:0},{dx:-TOFF,dy:-TOFF*0.7},{dx:TOFF,dy:-TOFF*0.7},{dx:-TOFF,dy:TOFF*0.7},{dx:TOFF,dy:TOFF*0.7},{dx:0,dy:-TOFF*1.4},{dx:0,dy:TOFF*1.4}];
+    const off=offsets[slot]||{dx:0,dy:0};
+    const tx=cx+off.dx, ty=cy+off.dy;
+    const fsz=Math.max(7,Math.round(TR*0.75));
+    const isMoving=animating[name];
+    return[
+      <circle key={name+"s"} cx={tx+1} cy={ty+2} r={TR} fill="rgba(0,0,0,0.3)"
+        style={{transition:"cx 0.6s cubic-bezier(.4,0,.2,1),cy 0.6s cubic-bezier(.4,0,.2,1)"}}/>,
+      <circle key={name+"b"} cx={tx} cy={ty} r={isMoving?TR*1.4:TR}
+        fill={scores[name]?.color||"#888"} stroke={isMoving?"#fff":"#fff"} strokeWidth={isMoving?3:2}
+        style={{transition:"cx 0.6s cubic-bezier(.4,0,.2,1),cy 0.6s cubic-bezier(.4,0,.2,1),r 0.3s ease",filter:isMoving?"drop-shadow(0 0 6px rgba(255,255,255,0.9))":undefined}}/>,
+      <text key={name+"t"} x={tx} y={ty+fsz*0.38} textAnchor="middle"
+        fontSize={fsz} fontWeight="700" fill="#fff"
+        fontFamily="'Oswald',sans-serif"
+        style={{transition:"x 0.6s cubic-bezier(.4,0,.2,1),y 0.6s cubic-bezier(.4,0,.2,1)"}}>{name[0]}</text>
+    ];
+  });
+
+  return(
+    <div ref={containerRef} style={{background:CREAM,border:`3px solid ${RED}`,borderRadius:12,padding:"10px 10px 8px",boxShadow:"0 6px 30px rgba(139,26,26,.18)",width:"100%",flex:1,minHeight:0,display:"flex",flexDirection:"column"}}>
+      <div style={{textAlign:"center",marginBottom:6,borderBottom:`2px solid ${BORDER}`,paddingBottom:5}}>
+        <span style={{...PF,fontSize:"1.05rem",fontWeight:900,color:RED,letterSpacing:3}}>♠ LA ÚLTIMA APUESTA · LAS VEGAS ♠</span>
+      </div>
+      <div style={{flex:1,minHeight:0}}>
+        <svg width={W} height={H} style={{display:"block",width:"100%",height:"100%"}}>
+          {cellEls}
+          {/* Ladders behind snakes */}
+          <Ladder from={3}  to={15} color="#4a90d9"/>
+          <Ladder from={11} to={23} color="#4a90d9"/>
+          <Ladder from={8}  to={17} color="#4a90d9"/>
+          {/* Snakes */}
+          <Snake from={26} to={16} bodyColor="#2e7d32" accentColor="#81c784" offsetX={0}/>
+          <Snake from={29} to={19} bodyColor="#388e3c" accentColor="#a5d6a7" offsetX={12}/>
+          <Snake from={13} to={2}  bodyColor="#2e7d32" accentColor="#81c784" offsetX={15}/>
+          {/* Tokens on top */}
+          {tokenEls}
+        </svg>
+      </div>
+      <div style={{display:"flex",gap:20,marginTop:6,justifyContent:"center"}}>
+        <span style={{...OW,fontSize:"0.65rem",color:MUTED,letterSpacing:1}}>🐍 SNAKE: GO BACK &nbsp;|&nbsp; 🪜 LADDER: ADVANCE</span>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════
+   ROOT APP
+══════════════════ */
+function App(){
+  const isPlayer=new URLSearchParams(window.location.search).get("view")==="player";
+  const isTV=new URLSearchParams(window.location.search).get("view")==="tv";
+
+  const [fbReady,setFbReady]=useState(!!window._fb);
+  const [fbBroken,setFbBroken]=useState(false);
+  const [view,setView]=useState(isPlayer?"player":isTV?"tv":"landing");
+  const [gameState,setGameState]=useState(null);
+
+  const [myName,setMyName]=useState(null);
+  const [myAnswer,setMyAnswer]=useState("");
+  const [myMC,setMyMC]=useState(null);
+  const [mySubmitted,setMySubmitted]=useState(false);
+  const [myResult,setMyResult]=useState(null);
+  const [mySeenQ,setMySeenQ]=useState(-1);
+
+  // TV popup is stored in Firebase so the TV screen can display it
+  // Local state just tracks what we've written (host only)
+  const [pendingNextQ,setPendingNextQ]=useState(false);
+  const [setupQs,setSetupQs]=useState(null);
+  const timerRef=useRef(null);
+
+  useEffect(()=>{
+    if(fbReady)return;
+    const h=()=>{if(window._fbError||!window._fb)setFbBroken(true);else setFbReady(true);};
+    window.addEventListener("firebase-ready",h);
+    return()=>window.removeEventListener("firebase-ready",h);
+  },[fbReady]);
+
+  useEffect(()=>{
+    if(!fbReady)return;
+    try{window._fb.get(window._fb.ref(window._fb.db,"game")).catch(()=>setFbBroken(true));}
+    catch(e){setFbBroken(true);}
+  },[fbReady]);
+
+  useEffect(()=>{
+    if(!fbReady||fbBroken)return;
+    const unsub=window._fb.onValue(window._fb.ref(window._fb.db,"game"),snap=>{
+      setGameState(snap.val()||null);
+    });
+    return()=>unsub();
+  },[fbReady,fbBroken]);
+
+  useEffect(()=>{
+    if(isPlayer&&gameState?.phase==="winner")setView("winner-player");
+  },[gameState?.phase]);
+
+  useEffect(()=>{
+    if(!myName||!gameState)return;
+    const cq=gameState.curQ;
+    if(cq>0&&cq!==mySeenQ){setMySeenQ(cq);setMySubmitted(false);setMyResult(null);setMyAnswer("");setMyMC(null);}
+  },[gameState?.curQ,myName]);
+
+  useEffect(()=>{
+    if(!fbReady||fbBroken||isPlayer||isTV)return;
+    if(!gameState?.timerOn)return;
+    clearInterval(timerRef.current);
+    timerRef.current=setInterval(async()=>{
+      const snap=await window._fb.get(window._fb.ref(window._fb.db,"game/timer"));
+      const t=snap.val()??0;
+      if(t<=1){clearInterval(timerRef.current);fbUpd("game",{timer:0,timerOn:false,phase:"reveal"});}
+      else{fbUpd("game",{timer:t-1});}
+    },1000);
+    return()=>clearInterval(timerRef.current);
+  },[gameState?.timerOn,fbReady,fbBroken,isPlayer]);
+
+  if(!fbReady&&!fbBroken)return <Splash msg="Connecting…"/>;
+  if(fbBroken||window._fbError)return <FirebaseSetup/>;
+
+  function fbSet(path,val){window._fb.set(window._fb.ref(window._fb.db,path),val);}
+  function fbUpd(path,val){window._fb.update(window._fb.ref(window._fb.db,path),val);}
+
+  function hostInit(questions){
+    // Always use fresh QUESTIONS constant to avoid stale written-type data in Firebase
+    fbSet("game",{phase:"lobby",curQ:0,timer:25,timerOn:false,revealed:false,questions:QUESTIONS,scores:initScores(),submissions:{},finishOrder:[]});
+  }
+
+  function doNextQ(){
+    const next=(gameState?.curQ||0)+1;
+    if(next>QUESTIONS.length){fbUpd("game",{phase:"winner",timerOn:false});return;}
+    fbUpd("game",{curQ:next,timer:25,timerOn:true,revealed:false,submissions:{},phase:"question"});
+  }
+
+  function hostNextQ(){
+    // If TV popup is showing, just queue next Q — TV's Continue button advances it
+    doNextQ();
+  }
+
+  function applySnakeLadder(sq){
+    const s=SNAKES[sq]; if(s!==undefined)return s;
+    const l=LADDERS[sq]; if(l!==undefined)return l;
+    return sq;
+  }
+
+  function hostReveal(){
+    clearInterval(timerRef.current);
+    const gs=gameState;
+    const qIdx=gs.curQ-1;
+    const q=QUESTIONS[qIdx]; // always use local constant
+    const subs=gs.submissions||{};
+    const oldScores=JSON.parse(JSON.stringify(gs.scores));
+    const scores=JSON.parse(JSON.stringify(oldScores));
+    const pts=getPoints(qIdx);
+
+    // Track finish order — players who reach sq 30 this round
+    const currentFinishOrder=[...(gs.finishOrder||[])];
+    Object.entries(subs).forEach(([name,ans])=>{
+      if(!scores[name])return;
+      const ok=checkAns(q,ans);
+      const d=ok?pts:-Math.ceil(pts/2);
+      const rawSq=Math.max(1,Math.min(TOTAL,(scores[name].pos||0)+1+d));
+      const finalSq=applySnakeLadder(rawSq);
+      scores[name]={...scores[name],score:scores[name].score+d,pos:finalSq-1};
+      // If they just reached sq 30 and haven't finished before, record it
+      if(finalSq===TOTAL && scores[name].finishRound==null){
+        scores[name].finishRound=gs.curQ;
+        if(!currentFinishOrder.includes(name)) currentFinishOrder.push(name);
+      }
+    });
+    // Don't write new scores yet — wait until Continue is clicked so tokens move AFTER reveal
+    fbUpd("game",{timerOn:false,revealed:true,phase:"reveal"});
+    /* Write reveal popup + pending scores + finish order to Firebase */
+    const revealData={type:"reveal",qText:q.text,qType:q.type,qOpts:q.opts||[],qAnswer:q.answer||"",pts,pendingScores:scores,pendingFinishOrder:currentFinishOrder};
+    fbUpd("game",{tvPopup:revealData});
+
+    /* Build popup events with full board info */
+    const events=[];
+    let topGainer=null,topGainDelta=0;
+    Object.entries(subs).forEach(([name,ans])=>{
+      const ok=checkAns(q,ans);
+      const d=ok?pts:-Math.ceil(pts/2);
+      const fromSq=(oldScores[name]?.pos||0)+1;
+      const rawSq=Math.max(1,Math.min(TOTAL,fromSq+d));
+      const finalSq=applySnakeLadder(rawSq);
+      const hitSnake=SNAKES[rawSq]!==undefined;
+      const hitLadder=LADDERS[rawSq]!==undefined;
+      if(!ok&&d<0){
+        events.push({
+          name,color:oldScores[name]?.color||"#888",type:"demote",
+          ptsDelta:Math.abs(d),fromSq,
+          snakeSq:hitSnake?rawSq:null,toSq:finalSq
+        });
+      }
+      if(ok&&d>topGainDelta){topGainDelta=d;topGainer=name;}
+      if(ok){
+        // track for all correct answerers, pick top gainer for promote event
+        if(d>topGainDelta){
+          topGainDelta=d;topGainer=name;
+        }
+      }
+    });
+    // Build promote event for top gainer
+    if(topGainer){
+      const d=topGainDelta;
+      const fromSq=(oldScores[topGainer]?.pos||0)+1;
+      const rawSq=Math.max(1,Math.min(TOTAL,fromSq+d));
+      const finalSq=applySnakeLadder(rawSq);
+      const hitLadder=LADDERS[rawSq]!==undefined;
+      events.push({
+        name:topGainer,color:oldScores[topGainer]?.color||"#888",type:"promote",
+        ptsDelta:d,fromSq,
+        ladderSq:hitLadder?rawSq:null,toSq:finalSq
+      });
+    }
+    // (events no longer used for popup — tokens animate directly on board)
+  }
+
+  function hostReset(){
+    clearInterval(timerRef.current);
+    fbSet("game",{phase:"lobby",curQ:0,timer:25,timerOn:false,revealed:false,questions:QUESTIONS,scores:initScores(),submissions:{},finishOrder:[]});
+    setSetupQs(null);setPendingNextQ(false);
+  }
+
+  function playerSubmit(ans){
+    const gs=gameState;
+    fbUpd("game/submissions",{[myName]:ans});
+    const ok=checkAns(gs.questions[gs.curQ-1],ans);
+    setMyResult(ok?"correct":"wrong");
+    setMySubmitted(true);
+  }
+
+  function handleRevealContinue(){
+    // Apply pending scores + finish order now → tokens animate on board. Clear all popups.
+    const pending=gs?.tvPopup?.pendingScores;
+    const pendingFinishOrder=gs?.tvPopup?.pendingFinishOrder;
+    const update={tvPopup:null,tvPopupEvents:null};
+    if(pending) update.scores=pending;
+    if(pendingFinishOrder) update.finishOrder=pendingFinishOrder;
+    fbUpd("game",update);
+  }
+
+  function closePopupAndNext(){
+    fbUpd("game",{tvPopup:null,tvPopupEvents:null});
+  }
+
+  const gs=gameState;
+  const qs=QUESTIONS; // always use local constant, never stale Firebase data
+  const q=gs&&gs.curQ>0?qs[gs.curQ-1]:null;
+  const scores=gs?.scores||initScores();
+  const subs=gs?.submissions||{};
+  const timer=gs?.timer??25;
+  const revealed=gs?.revealed||false;
+  const phase=gs?.phase||"lobby";
+  const sorted=[...PLAYERS].sort((a,b)=>(scores[b]?.score||0)-(scores[a]?.score||0));
+  const finishOrder=gs?.finishOrder||[];
+  const qIdx=gs&&gs.curQ>0?gs.curQ-1:0;
+  const pts=getPoints(qIdx);
+
+  if(view==="landing")return <Landing
+    onHost={()=>{if(!gs)hostInit(QUESTIONS);setView("host");}}
+    onSetup={()=>{setSetupQs((gs?.questions||QUESTIONS).map(q=>({...q,opts:[...(q.opts||[])]})));setView("setup");}}
+    onPlayer={()=>setView("player")}
+    onTV={()=>setView("tv")}
+  />;
+
+  if(view==="setup")return <Setup qs={setupQs} setQs={setSetupQs}
+    save={()=>{const saved=setupQs;gs?fbUpd("game",{questions:saved}):hostInit(saved);setView("host");}}
+    back={()=>setView("landing")}
+  />;
+
+  if(view==="host"){
+    if(phase==="winner")return <WinnerScreen sorted={sorted} scores={scores} finishOrder={finishOrder} reset={hostReset}/>;
+    const tvPopup=gs?.tvPopup||null;
+    const tvPopupEvents=gs?.tvPopupEvents||[];
+    return(<>
+      <Host gs={gs} q={q} qs={qs} timer={timer} subs={subs} revealed={revealed}
+        scores={scores} sorted={sorted} phase={phase} pts={pts}
+        tvPopup={tvPopup} tvPopupEvents={tvPopupEvents}
+        nextQ={hostNextQ} reveal={hostReveal} reset={hostReset}
+        onRevealContinue={handleRevealContinue}
+        onMovementClose={closePopupAndNext}
+        goSetup={()=>{setSetupQs((gs?.questions||QUESTIONS).map(q=>({...q,opts:[...(q.opts||[])]})));setView("setup");}}
+      />
+    </>);
+  }
+
+  if(view==="player")return <PlayerView
+    gs={gs} myName={myName} setMyName={setMyName}
+    myAnswer={myAnswer} setMyAnswer={setMyAnswer}
+    myMC={myMC} setMyMC={setMyMC}
+    submitted={mySubmitted} result={myResult}
+    submit={playerSubmit} q={q} timer={timer} subs={subs} pts={pts}
+    back={()=>setView("landing")}
+  />;
+
+  if(view==="winner-player")return <WinnerScreen sorted={sorted} scores={scores} finishOrder={finishOrder} isPlayer/>;
+
+  if(view==="tv"){
+    const tvPopup=gs?.tvPopup||null;
+    const tvPopupEvents=gs?.tvPopupEvents||[];
+    return <TVDisplay
+      gs={gs} q={q} qs={qs} timer={timer} revealed={revealed}
+      scores={scores} sorted={sorted} phase={phase} pts={pts} subs={subs}
+      tvPopup={tvPopup} tvPopupEvents={tvPopupEvents}
+      onRevealContinue={handleRevealContinue}
+      onMovementClose={closePopupAndNext}
+    />;
+  }
+
+  return null;
+}
+
+/* ══════════════
+   LANDING
+══════════════ */
+function Landing({onHost,onSetup,onPlayer,onTV}){
+  return(
+    <div style={{background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:32,gap:6,color:DARK}}>
+      <div style={{fontSize:"2.2rem",letterSpacing:12,marginBottom:4,color:RED,animation:"pulse 2.5s ease-in-out infinite"}}>♥ ♠ ♦ ♣</div>
+      <div style={{...PF,fontSize:"clamp(1.6rem,5vw,2.8rem)",fontWeight:900,color:RED,lineHeight:1.05,letterSpacing:2}}>LA ÚLTIMA<br/>APUESTA EN<br/><span style={{fontSize:"clamp(1.2rem,4vw,2rem)",color:DARK,letterSpacing:4}}>LAS VEGAS</span></div>
+      <div style={{width:80,height:3,background:RED,margin:"12px auto"}}/>
+      <div style={{...OW,fontSize:"0.95rem",letterSpacing:3,color:MUTED}}>CHANI'S BACHELORETTE</div>
+      <div style={{...PF,fontStyle:"italic",fontSize:"0.95rem",color:DARK,opacity:.65}}>How Well Do You Know Her?</div>
+      <div style={{...OW,fontSize:"0.8rem",letterSpacing:2,color:MUTED,marginBottom:20}}>04 · 24–27 · FRIDAY NIGHT</div>
+      <button style={btn({background:RED,color:"#fff",padding:"14px 36px",fontSize:"1rem",fontWeight:600,boxShadow:"0 4px 16px rgba(139,26,26,.3)",margin:5,letterSpacing:3})} onClick={onHost}>🎰 HOST DISPLAY (TV)</button>
+      <button style={btn({background:"transparent",color:RED,border:`2px solid ${RED}`,padding:"10px 24px",fontSize:"0.88rem",margin:5})} onClick={onSetup}>✏️ ENTER CHANI'S ANSWERS FIRST</button>
+      <button style={btn({background:"transparent",color:DARK,border:`2px solid ${BORDER}`,padding:"10px 24px",fontSize:"0.88rem",margin:5})} onClick={onPlayer}>📱 PLAYER VIEW (THIS DEVICE)</button>
+      <button style={btn({background:"transparent",color:MUTED,border:`1.5px solid ${BORDER}`,padding:"10px 24px",fontSize:"0.88rem",margin:5})} onClick={onTV}>📺 TV MIRROR (READ-ONLY)</button>
+    </div>
+  );
+}
+
+/* ══════════════
+   SETUP
+══════════════ */
+function Setup({qs,setQs,save,back}){
+  if(!qs)return null;
+  const inp={width:"100%",background:CREAM,border:`1.5px solid ${BORDER}`,borderRadius:4,padding:"7px 10px",color:DARK,fontSize:"0.88rem",outline:"none",boxSizing:"border-box",...OW};
+  return(
+    <div style={{background:CREAM2,minHeight:"100vh",color:DARK}}>
+      <div style={{background:RED,textAlign:"center",padding:"14px 20px"}}>
+        <div style={{...PF,fontSize:"1.6rem",fontWeight:700,color:"#fff"}}>Enter Chani's Answers</div>
+        <div style={{...PF,fontStyle:"italic",fontSize:"0.9rem",color:"rgba(255,255,255,.8)"}}>Fill in before the party — keep it secret!</div>
+      </div>
+      <div style={{maxWidth:700,margin:"0 auto",padding:16}}>
+        {qs.map((q,qi)=>{
+          const pts=getPoints(qi);
+          return(
+            <div key={q.id} style={{background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:8,padding:"12px 16px",marginBottom:10,boxShadow:"0 2px 6px rgba(0,0,0,.06)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                <span style={{...OW,fontSize:"0.65rem",letterSpacing:2,color:RED,textTransform:"uppercase"}}>Q{q.id} · {q.type==="mc"?"Multiple Choice":"Written"}</span>
+                <span style={{...OW,fontSize:"0.65rem",background:RED,color:"#fff",borderRadius:20,padding:"1px 8px"}}>+{pts} pts</span>
+              </div>
+              <div style={{...PF,fontSize:"0.95rem",color:DARK,marginBottom:8}}>{q.text}</div>
+              {q.type==="mc"?(
+                <>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+                    {["A","B","C","D"].map((l,oi)=>(
+                      <div key={l} style={{display:"flex",alignItems:"center",gap:5}}>
+                        <span style={{...OW,fontSize:"0.7rem",color:RED,minWidth:18}}>{l})</span>
+                        <input style={inp} value={q.opts[oi]||""} onChange={e=>{setQs(prev=>{const n=[...prev];n[qi]={...n[qi],opts:[...n[qi].opts]};n[qi].opts[oi]=e.target.value;return n;});}} placeholder={`Option ${l}`}/>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{...OW,fontSize:"0.7rem",color:MUTED,whiteSpace:"nowrap"}}>Correct Answer:</span>
+                    <input style={inp} value={q.answer||""} onChange={e=>{setQs(prev=>{const n=[...prev];n[qi]={...n[qi],answer:e.target.value};return n;});}} placeholder="Type the exact correct option text"/>
+                  </div>
+                </>
+              ):(
+                <input style={inp} value={q.answer||""} onChange={e=>{setQs(prev=>{const n=[...prev];n[qi]={...n[qi],answer:e.target.value};return n;});}} placeholder="Type Chani's answer…"/>
+              )}
+            </div>
+          );
+        })}
+        <div style={{textAlign:"center",padding:"18px 0",display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          <button style={btn({background:RED,color:"#fff",padding:"13px 32px",fontSize:"0.9rem",fontWeight:600})} onClick={save}>SAVE & GO TO HOST VIEW</button>
+          <button style={btn({background:"transparent",color:MUTED,border:`1.5px solid ${BORDER}`,padding:"10px 20px",fontSize:"0.85rem"})} onClick={back}>BACK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════
+   HOST
+══════════════ */
+function Host({gs,q,qs,timer,subs,revealed,scores,sorted,phase,pts,tvPopup,tvPopupEvents,nextQ,reveal,reset,goSetup,onRevealContinue,onMovementClose}){
+  const totalTime=25,pct=(timer/totalTime)*100;
+  const answered=Object.keys(subs||{}).length;
+  return(
+    <div style={{background:CREAM2,height:"100vh",display:"flex",flexDirection:"column",color:DARK,overflow:"hidden"}}>
+      <div style={{background:RED,textAlign:"center",padding:"10px 20px",borderBottom:`3px solid ${BORDER}`}}>
+        <div style={{...PF,fontSize:"clamp(1rem,2.5vw,1.6rem)",fontWeight:900,color:"#fff",letterSpacing:3}}>♠ HOW WELL DO YOU KNOW CHANI? ♠</div>
+        <div style={{...OW,fontSize:"0.72rem",color:"rgba(255,255,255,.7)",letterSpacing:2}}>LA ÚLTIMA APUESTA EN LAS VEGAS · BACHELORETTE 2026</div>
+      </div>
+      <div style={{display:"flex",flex:1,gap:12,padding:12,minHeight:0,overflow:"hidden"}}>
+        {/* Left: board + question */}
+        <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:8,minHeight:0,overflow:"hidden"}}>
+          <Board scores={scores}/>
+          {/* Question panel */}
+          <div style={{background:CARD,border:`2px solid ${BORDER}`,borderRadius:10,padding:"10px 14px",boxShadow:"0 2px 10px rgba(0,0,0,.07)",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <span style={{...OW,fontSize:"0.65rem",letterSpacing:3,color:RED,textTransform:"uppercase"}}>Question {gs?.curQ||0} of {qs.length}</span>
+              {q&&<span style={{...OW,fontSize:"0.65rem",background:RED,color:"#fff",borderRadius:20,padding:"2px 8px"}}>+{pts} correct · -{Math.ceil(pts/2)} wrong</span>}
+            </div>
+            {q?(
+              <>
+                <div style={{...PF,fontSize:"clamp(.95rem,1.8vw,1.2rem)",color:DARK,lineHeight:1.35,marginBottom:10,fontWeight:700}}>{q.text}</div>
+                {q.type==="mc"&&(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:10}}>
+                    {q.opts.map((opt,i)=>{
+                      const ok=revealed&&opt.toLowerCase()===(q.answer||"").toLowerCase();
+                      return<div key={i} style={{background:ok?"rgba(45,106,45,.1)":"rgba(139,26,26,.04)",border:`1.5px solid ${ok?"#2d6a2d":BORDER}`,borderRadius:4,padding:"8px 10px",fontSize:"0.8rem",color:ok?"#2d6a2d":DARK,fontWeight:ok?700:400}}>
+                        <span style={{...OW,fontWeight:700,color:ok?"#2d6a2d":RED,marginRight:5}}>{["A","B","C","D"][i]})</span>{opt}{ok&&" ✓"}
+                      </div>;
+                    })}
+                  </div>
+                )}
+                {revealed&&<div style={{background:"rgba(45,106,45,.08)",border:`1.5px solid rgba(45,106,45,.4)`,borderRadius:6,padding:"8px 12px",marginBottom:10}}>
+                  <div style={{...OW,fontSize:"0.6rem",letterSpacing:2,color:"#2d6a2d",textTransform:"uppercase",marginBottom:2}}>CORRECT ANSWER</div>
+                  <div style={{...PF,fontSize:"1.1rem",color:"#2d6a2d",fontWeight:700}}>{q.answer||"(not set — go to Setup)"}</div>
+                </div>}
+                {!revealed&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",marginBottom:8}}>
+                  <div style={{height:"100%",width:`${pct}%`,background:pct<34?`linear-gradient(90deg,${RED},#e74c3c)`:`linear-gradient(90deg,${BORDER},${GOLD})`,borderRadius:3,transition:"width 1s linear"}}/>
+                </div>}
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                  {!revealed&&<div style={{width:44,height:44,borderRadius:"50%",border:`3px solid ${pct<34?RED:BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",...PF,fontSize:"1.2rem",fontWeight:700,color:pct<34?RED:MUTED,background:CREAM,flexShrink:0,animation:pct<20?"tp .5s infinite":"none"}}>{timer}</div>}
+                  <div style={{flex:1}}>
+                    <div style={{...OW,fontSize:"0.65rem",opacity:.7,letterSpacing:1,color:MUTED}}>{answered}/{PLAYERS.length} answered</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:3,marginTop:4}}>
+                      {PLAYERS.map(p=><span key={p} style={{background:subs[p]?"rgba(45,106,45,.15)":CREAM2,border:`1px solid ${subs[p]?"#2d6a2d":BORDER}`,borderRadius:20,padding:"2px 8px",fontSize:"0.6rem",color:subs[p]?"#2d6a2d":MUTED,...OW}}>{p}</span>)}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ):(
+              <div style={{...PF,fontStyle:"italic",opacity:.6,marginBottom:12,fontSize:"1rem"}}>Press "Start Game" below. Make sure all players have scanned the QR!</div>
+            )}
+            <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
+              {/* START GAME — before first question */}
+              {(!gs||gs.curQ===0)&&(
+                <button style={btn({background:RED,color:"#fff",padding:"9px 18px",fontSize:"0.82rem",fontWeight:600,letterSpacing:2})} onClick={nextQ}>START GAME</button>
+              )}
+              {/* REVEAL ANSWER — during active question */}
+              {q&&!revealed&&(
+                <button style={btn({background:DARK,color:CREAM,padding:"9px 18px",fontSize:"0.82rem",fontWeight:600,letterSpacing:2})} onClick={reveal}>REVEAL ANSWER</button>
+              )}
+              {/* CONTINUE — after reveal, moves tokens on board */}
+              {revealed&&tvPopup?.type==="reveal"&&(
+                <button style={btn({background:RED,color:"#fff",padding:"9px 18px",fontSize:"0.82rem",fontWeight:600,letterSpacing:2})} onClick={onRevealContinue}>CONTINUE →</button>
+              )}
+              {/* NEXT QUESTION — after continue (tokens have moved, no popup) */}
+              {revealed&&!tvPopup&&gs&&gs.curQ>0&&(
+                <button style={btn({background:RED,color:"#fff",padding:"9px 18px",fontSize:"0.82rem",fontWeight:600,letterSpacing:2})} onClick={nextQ}>
+                  {gs.curQ>=qs.length?"SEE RESULTS":"NEXT QUESTION"}
+                </button>
+              )}
+              <button style={btn({background:"transparent",color:MUTED,border:`1px solid ${BORDER}`,padding:"7px 14px",fontSize:"0.7rem",marginLeft:"auto"})} onClick={goSetup}>SETUP</button>
+              <button style={btn({background:"transparent",color:RED,border:`1px solid ${RED}`,padding:"7px 12px",fontSize:"0.68rem"})} onClick={()=>{if(window.confirm("Reset game?"))reset();}}>RESET</button>
+            </div>
+          </div>
+        </div>
+        {/* Sidebar */}
+        <div style={{width:195,flexShrink:0,display:"flex",flexDirection:"column",gap:7,overflowY:"auto",minHeight:0}}>
+          <div style={{...OW,fontSize:"0.82rem",color:RED,textAlign:"center",letterSpacing:2,textTransform:"uppercase",borderBottom:`2px solid ${RED}`,paddingBottom:5}}>Leaderboard</div>
+          {sorted.map((name,i)=>{
+            const sc=scores[name]||{score:0,pos:0,color:"#888"};
+            return<div key={name} style={{background:i===0&&sc.score>0?CARD:CREAM2,border:`1.5px solid ${i===0&&sc.score>0?RED:BORDER}`,borderRadius:6,padding:"7px 10px",display:"flex",alignItems:"center",gap:7}}>
+              <div style={{width:26,height:26,borderRadius:"50%",background:sc.color,border:`2px solid ${CREAM}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <span style={{...OW,fontWeight:700,fontSize:"0.72rem",color:"#fff"}}>{name[0]}</span>
+              </div>
+              <div style={{flex:1,...OW,fontSize:"0.68rem",letterSpacing:1,color:DARK,textTransform:"uppercase"}}>{name}</div>
+              <div style={{textAlign:"right"}}>
+                <div style={{...PF,fontSize:"1rem",color:RED,fontWeight:700}}>{sc.score}</div>
+                <div style={{...OW,fontSize:"0.5rem",color:MUTED}}>sq {(sc.pos||0)+1}</div>
+              </div>
+            </div>;
+          })}
+          <div style={{marginTop:"auto"}}><QRBox/></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════
+   PLAYER VIEW
+══════════════ */
+function PlayerView({gs,myName,setMyName,myAnswer,setMyAnswer,myMC,setMyMC,submitted,result,submit,q,timer,subs,pts,back}){
+  const [sel,setSel]=useState(myName||null);
+  const totalTime=25,pct=(timer/totalTime)*100;
+  const phase=gs?.phase||"lobby";
+  const revealed=gs?.revealed||false;
+
+  if(!myName)return(
+    <div style={{background:CREAM,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{maxWidth:390,width:"100%",background:CARD,border:`2px solid ${BORDER}`,borderRadius:16,padding:"24px 20px",boxShadow:"0 8px 40px rgba(139,26,26,.12)"}}>
+        <div style={{textAlign:"center",marginBottom:14}}>
+          <div style={{fontSize:"2.4rem",marginBottom:6}}>🎰</div>
+          <div style={{...PF,fontSize:"1.3rem",color:RED,marginBottom:4,fontWeight:700}}>Who Are You?</div>
+          <div style={{width:40,height:2,background:RED,margin:"0 auto 14px"}}/>
+        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:7,justifyContent:"center",marginBottom:18}}>
+          {PLAYERS.map(name=>(
+            <div key={name} onClick={()=>setSel(name)} style={{background:sel===name?RED:CREAM2,border:`1.5px solid ${sel===name?RED:BORDER}`,color:sel===name?"#fff":DARK,padding:"8px 15px",borderRadius:20,cursor:"pointer",fontSize:"0.85rem",letterSpacing:1,fontWeight:sel===name?600:400,...OW,transition:"all .2s"}}>{name}</div>
+          ))}
+        </div>
+        <button style={btn({background:RED,color:"#fff",padding:"13px",fontSize:"0.9rem",fontWeight:600,width:"100%",display:"block",letterSpacing:2})} onClick={()=>{if(!sel){alert("Pick your name!");return;}setMyName(sel);}}>JOIN THE GAME →</button>
+        <div style={{textAlign:"center",marginTop:10}}>
+          <button style={btn({background:"transparent",color:MUTED,border:`1px solid ${BORDER}`,padding:"6px 14px",fontSize:"0.7rem"})} onClick={back}>← BACK</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if(!gs||phase==="lobby"||!q)return(
+    <div style={{background:CREAM,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{maxWidth:390,width:"100%",background:CARD,border:`2px solid ${BORDER}`,borderRadius:16,padding:"32px 20px",textAlign:"center",boxShadow:"0 8px 40px rgba(139,26,26,.12)"}}>
+        <div style={{fontSize:"2.5rem",marginBottom:12,display:"inline-block",animation:"spin 3s linear infinite"}}>🃏</div>
+        <div style={{...PF,color:RED,fontSize:"1.2rem",marginBottom:6,fontWeight:700}}>You're in, {myName}!</div>
+        <div style={{...PF,fontStyle:"italic",opacity:.65,fontSize:"0.9rem"}}>Waiting for the host to start…</div>
+        <div style={{marginTop:8,fontSize:"0.68rem",opacity:.4,...OW}}>Keep this screen open!</div>
+      </div>
+    </div>
+  );
+
+  /* After submit — score hidden until reveal */
+  if(submitted)return(
+    <div style={{background:CREAM,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{maxWidth:390,width:"100%",background:CARD,border:`2px solid ${BORDER}`,borderRadius:16,padding:"32px 20px",textAlign:"center",boxShadow:"0 8px 40px rgba(139,26,26,.12)"}}>
+        <div style={{...PF,fontSize:"1.1rem",color:RED,marginBottom:14,fontWeight:700}}>Answer locked in! ✅</div>
+
+        {revealed?(
+          <div style={{display:"inline-block",padding:"12px 24px",borderRadius:20,
+            background:result==="correct"?"rgba(45,106,45,.1)":"rgba(139,26,26,.1)",
+            border:`2px solid ${result==="correct"?"#2d6a2d":RED}`,
+            color:result==="correct"?"#2d6a2d":RED,
+            fontSize:"1.05rem",letterSpacing:2,...OW,animation:"popIn .4s ease"}}>
+            {result==="correct"?`+${pts} Points 🎉`:`-${Math.ceil(pts/2)} Points 😬`}
+          </div>
+        ):(
+          <div style={{display:"inline-block",padding:"12px 24px",borderRadius:20,background:CREAM2,border:`1.5px solid ${BORDER}`,color:MUTED,fontSize:"0.9rem",letterSpacing:2,...OW}}>
+            🤫 Score hidden until reveal…
+          </div>
+        )}
+
+        <div style={{...PF,fontStyle:"italic",opacity:.5,marginTop:12,fontSize:"0.88rem"}}>
+          {revealed?"The host is reviewing results…":"Waiting for host to reveal the answer…"}
+        </div>
+        <div style={{marginTop:10,fontSize:"0.65rem",opacity:.4,...OW}}>{Object.keys(subs||{}).length}/{PLAYERS.length} players answered</div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{background:CREAM,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{maxWidth:390,width:"100%",background:CARD,border:`2px solid ${BORDER}`,borderRadius:16,padding:"24px 20px",boxShadow:"0 8px 40px rgba(139,26,26,.12)"}}>
+        <div style={{...OW,fontSize:"0.65rem",letterSpacing:3,color:RED,textTransform:"uppercase",marginBottom:5,textAlign:"center"}}>Question {gs.curQ} of {gs.questions?.length||15}</div>
+        <div style={{textAlign:"center",marginBottom:9}}>
+          <span style={{...OW,fontSize:"0.7rem",background:RED,color:"#fff",borderRadius:20,padding:"2px 10px",letterSpacing:1}}>Worth {pts} points</span>
+        </div>
+        <div style={{...PF,fontSize:"1.1rem",color:DARK,textAlign:"center",lineHeight:1.4,marginBottom:14,fontWeight:700}}>{q.text}</div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+          <div style={{flex:1,height:6,background:"rgba(0,0,0,.08)",borderRadius:4,overflow:"hidden"}}>
+            <div style={{height:"100%",width:`${pct}%`,background:pct<34?`linear-gradient(90deg,${RED},#e74c3c)`:`linear-gradient(90deg,${BORDER},${GOLD})`,borderRadius:4,transition:"width 1s linear"}}/>
+          </div>
+          <div style={{...PF,fontSize:"1.2rem",color:pct<34?RED:MUTED,minWidth:26,textAlign:"center",fontWeight:700}}>{timer}</div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
+          {["A","B","C","D"].map((l,i)=>(
+            <button key={i} onClick={()=>setMyMC(q.opts[i])} style={btn({background:myMC===q.opts[i]?"rgba(139,26,26,.1)":CREAM2,border:`1.5px solid ${myMC===q.opts[i]?RED:BORDER}`,borderRadius:8,padding:"12px 13px",color:myMC===q.opts[i]?RED:DARK,fontSize:"0.9rem",textAlign:"left"})}>
+              <span style={{fontWeight:700,color:RED,marginRight:7,...OW}}>{l})</span>{q.opts[i]}
+            </button>
+          ))}
+        </div>
+        <button style={btn({background:RED,color:"#fff",padding:"13px",fontSize:"0.92rem",fontWeight:600,width:"100%",display:"block",opacity:timer===0?.5:1,letterSpacing:2})} onClick={()=>{if(!myMC){alert("Please select an answer!");return;}submit(myMC);}} disabled={timer===0}>
+          {timer===0?"TIME'S UP!":"SUBMIT ANSWER ♠"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════
+   TV DISPLAY — fullscreen read-only mirror for TV
+   Open via ?view=tv — auto-syncs with Firebase
+══════════════════════════════════════════════════ */
+function TVDisplay({gs,q,qs,timer,revealed,scores,sorted,phase,pts,subs,tvPopup,tvPopupEvents,onRevealContinue,onMovementClose}){
+  const totalTime=25, pct=(timer/totalTime)*100;
+  const answered=Object.keys(subs||{}).length;
+  const medals=["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣","7️⃣"];
+
+  // Waiting screen
+  if(!gs||phase==="lobby")return(
+    <div style={{background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:16}}>
+      <div style={{fontSize:"3rem",letterSpacing:16,color:RED,animation:"pulse 2.5s ease-in-out infinite"}}>♥ ♠ ♦ ♣</div>
+      <div style={{...PF,fontSize:"clamp(2rem,5vw,4rem)",fontWeight:900,color:RED,lineHeight:1.05}}>LA ÚLTIMA APUESTA<br/><span style={{fontSize:"0.65em",color:DARK}}>EN LAS VEGAS</span></div>
+      <div style={{width:100,height:4,background:RED,margin:"8px auto"}}/>
+      <div style={{...OW,fontSize:"1.2rem",letterSpacing:4,color:MUTED}}>CHANI'S BACHELORETTE</div>
+      <div style={{...PF,fontStyle:"italic",fontSize:"1rem",color:DARK,opacity:.5,marginTop:8}}>Waiting for the host to start the game…</div>
+    </div>
+  );
+
+  if(phase==="winner"){
+    const confetti=Array.from({length:60},(_,i)=>({l:`${Math.random()*100}%`,c:[RED,GOLD,CREAM,DARK,"#fff"][i%5],w:8+Math.random()*8,h:8+Math.random()*8,d:`${2+Math.random()*3}s`,dl:`${Math.random()*2}s`,r:Math.random()>.5}));
+    const finishOrder=gs?.finishOrder||[];
+    const didntFinish=PLAYERS.filter(p=>!finishOrder.includes(p)).sort((a,b)=>(scores[b]?.pos||0)-(scores[a]?.pos||0));
+    const boardOrder=[...finishOrder,...didntFinish];
+    const medals=["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣"];
+    return(
+      <div style={{background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",position:"relative",overflow:"hidden",padding:"32px 24px"}}>
+        {confetti.map((c,i)=><div key={i} style={{position:"absolute",top:-20,left:c.l,width:c.w,height:c.h,background:c.c,borderRadius:c.r?"50%":"2px",animation:`fall ${c.d} ${c.dl} linear infinite`,pointerEvents:"none"}}/>)}
+        <div style={{fontSize:"4rem",animation:"bounce 1s ease-in-out infinite",position:"relative",zIndex:1}}>👑</div>
+        <div style={{...PF,fontSize:"clamp(2rem,5vw,3.2rem)",color:RED,fontWeight:900,margin:"12px 0 4px",position:"relative",zIndex:1}}>🎉 GAME OVER! 🎉</div>
+        <div style={{width:80,height:4,background:RED,margin:"0 auto 24px",position:"relative",zIndex:1}}/>
+        <div style={{display:"flex",gap:24,width:"100%",maxWidth:900,position:"relative",zIndex:1,flexWrap:"wrap",justifyContent:"center"}}>
+          {/* Points leaderboard */}
+          <div style={{flex:1,minWidth:320}}>
+            <div style={{...PF,fontSize:"clamp(1.1rem,2.5vw,1.5rem)",fontWeight:700,color:RED,marginBottom:6}}>🃏 Most Knowledgeable</div>
+            <div style={{...OW,fontSize:"0.7rem",color:MUTED,letterSpacing:2,marginBottom:10}}>RANKED BY CORRECT ANSWERS</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {sorted.map((name,i)=>(
+                <div key={name} style={{background:i===0?CARD:CREAM2,border:`2px solid ${i===0?RED:BORDER}`,borderRadius:10,padding:"12px 18px",display:"flex",alignItems:"center",gap:12,boxShadow:i===0?"0 3px 16px rgba(139,26,26,.2)":undefined}}>
+                  <span style={{fontSize:"1.3rem",minWidth:32}}>{medals[i]}</span>
+                  <div style={{width:34,height:34,borderRadius:"50%",background:scores[name]?.color||"#888",flexShrink:0,border:`2px solid ${CREAM}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span style={{...OW,fontWeight:700,fontSize:"0.9rem",color:"#fff"}}>{name[0]}</span>
+                  </div>
+                  <span style={{flex:1,...OW,fontSize:"1rem",letterSpacing:2,textTransform:"uppercase",textAlign:"left"}}>{name}</span>
+                  <span style={{...PF,fontSize:"1.2rem",color:RED,fontWeight:700}}>{scores[name]?.score||0} pts</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Board finish order */}
+          <div style={{flex:1,minWidth:320}}>
+            <div style={{...PF,fontSize:"clamp(1.1rem,2.5vw,1.5rem)",fontWeight:700,color:"#2d6a2d",marginBottom:6}}>🏆 Finish Line</div>
+            <div style={{...OW,fontSize:"0.7rem",color:MUTED,letterSpacing:2,marginBottom:10}}>RANKED BY BOARD POSITION</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {boardOrder.map((name,i)=>{
+                const reached=finishOrder.includes(name);
+                const sq=(scores[name]?.pos||0)+1;
+                return(
+                  <div key={name} style={{background:i===0&&reached?CARD:CREAM2,border:`2px solid ${i===0&&reached?"#2d6a2d":BORDER}`,borderRadius:10,padding:"12px 18px",display:"flex",alignItems:"center",gap:12,boxShadow:i===0&&reached?"0 3px 16px rgba(45,106,45,.2)":undefined}}>
+                    <span style={{fontSize:"1.3rem",minWidth:32}}>{reached?medals[i]:"—"}</span>
+                    <div style={{width:34,height:34,borderRadius:"50%",background:scores[name]?.color||"#888",flexShrink:0,border:`2px solid ${CREAM}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <span style={{...OW,fontWeight:700,fontSize:"0.9rem",color:"#fff"}}>{name[0]}</span>
+                    </div>
+                    <span style={{flex:1,...OW,fontSize:"1rem",letterSpacing:2,textTransform:"uppercase",textAlign:"left"}}>{name}</span>
+                    <span style={{...PF,fontSize:"1.2rem",color:reached?"#2d6a2d":MUTED,fontWeight:700}}>
+                      {reached?"✓ Finished":`sq ${sq}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {finishOrder.length===0&&(
+              <div style={{...PF,fontStyle:"italic",opacity:.5,fontSize:"0.9rem",marginTop:10}}>No one reached square 30!</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{background:CREAM2,height:"100vh",display:"flex",flexDirection:"column",color:DARK,overflow:"hidden"}}>
+      {/* TV Popup — reveal only. After Continue, board shows tokens moving. */}
+      {tvPopup?.type==="reveal"&&(
+        <RevealPopup q={{text:tvPopup.qText,type:tvPopup.qType,opts:tvPopup.qOpts,answer:tvPopup.qAnswer}} pts={tvPopup.pts} onContinue={onRevealContinue}/>
+      )}
+      {/* Header */}
+      <div style={{background:RED,textAlign:"center",padding:"10px 24px",borderBottom:`3px solid ${BORDER}`,flexShrink:0}}>
+        <div style={{...PF,fontSize:"clamp(1.2rem,2.8vw,2rem)",fontWeight:900,color:"#fff",letterSpacing:4}}>♠ HOW WELL DO YOU KNOW CHANI? ♠</div>
+        <div style={{...OW,fontSize:"0.8rem",color:"rgba(255,255,255,.7)",letterSpacing:2}}>LA ÚLTIMA APUESTA EN LAS VEGAS · BACHELORETTE 2026</div>
+      </div>
+
+      {/* Main body */}
+      <div style={{display:"flex",flex:1,gap:14,padding:14,minHeight:0,overflow:"hidden"}}>
+
+        {/* LEFT: Board fills all available space */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",gap:8,minWidth:0,minHeight:0,overflow:"hidden"}}>
+          <Board scores={scores}/>
+
+
+        </div>
+
+        {/* RIGHT: Leaderboard sidebar */}
+        <div style={{width:220,flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{...OW,fontSize:"0.9rem",color:RED,textAlign:"center",letterSpacing:3,textTransform:"uppercase",borderBottom:`2px solid ${RED}`,paddingBottom:6,marginBottom:2}}>Leaderboard</div>
+          {sorted.map((name,i)=>{
+            const sc=scores[name]||{score:0,pos:0};
+            return(
+              <div key={name} style={{background:i===0&&sc.score>0?CARD:CREAM2,border:`2px solid ${i===0&&sc.score>0?RED:BORDER}`,borderRadius:8,padding:"9px 12px",display:"flex",alignItems:"center",gap:8,boxShadow:i===0&&sc.score>0?"0 2px 10px rgba(139,26,26,.15)":undefined}}>
+                <span style={{fontSize:"1.1rem",minWidth:28}}>{medals[i]||`${i+1}.`}</span>
+                <div style={{width:30,height:30,borderRadius:"50%",background:sc.color||"#888",flexShrink:0,border:`2px solid ${CREAM}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{...OW,fontWeight:700,fontSize:"0.8rem",color:"#fff"}}>{name[0]}</span>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{...OW,fontSize:"0.75rem",letterSpacing:1,color:DARK,textTransform:"uppercase",lineHeight:1.2}}>{name}</div>
+                  <div style={{...OW,fontSize:"0.6rem",color:MUTED}}>sq {(sc.pos||0)+1}</div>
+                </div>
+                <div style={{...PF,fontSize:"1.1rem",color:RED,fontWeight:700}}>{sc.score}</div>
+              </div>
+            );
+          })}
+          {/* QR for players to join */}
+          <div style={{marginTop:"auto"}}><QRBox/></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════
+   WINNER
+══════════════ */
+function WinnerScreen({sorted,scores,finishOrder,reset,isPlayer}){
+  const medals=["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣"];
+  const finishMedals=["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣"];
+  const confetti=Array.from({length:60},(_,i)=>({l:`${Math.random()*100}%`,c:[RED,GOLD,CREAM,DARK,"#fff"][i%5],w:6+Math.random()*8,h:6+Math.random()*8,d:`${2+Math.random()*3}s`,dl:`${Math.random()*2}s`,r:Math.random()>.5}));
+  // Players who never reached sq 30 — sort by final board position descending
+  const didntFinish=PLAYERS.filter(p=>!(finishOrder||[]).includes(p))
+    .sort((a,b)=>(scores[b]?.pos||0)-(scores[a]?.pos||0));
+  const boardOrder=[...(finishOrder||[]),...didntFinish];
+
+  return(
+    <div style={{background:CREAM,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 20px",textAlign:"center",position:"relative",overflow:"hidden",color:DARK}}>
+      {confetti.map((c,i)=><div key={i} style={{position:"absolute",top:-20,left:c.l,width:c.w,height:c.h,background:c.c,borderRadius:c.r?"50%":"2px",animation:`fall ${c.d} ${c.dl} linear infinite`,pointerEvents:"none"}}/>)}
+
+      {/* Header */}
+      <div style={{position:"relative",zIndex:1,marginBottom:6}}>
+        <div style={{fontSize:"3rem",animation:"bounce 1s ease-in-out infinite"}}>👑</div>
+        <div style={{...PF,fontSize:"clamp(1.4rem,4vw,2.2rem)",color:RED,margin:"10px 0 4px",fontWeight:900}}>🎉 Game Over! 🎉</div>
+        <div style={{width:60,height:3,background:RED,margin:"0 auto"}}/>
+      </div>
+
+      {/* Two leaderboards side by side */}
+      <div style={{display:"flex",gap:16,width:"100%",maxWidth:700,position:"relative",zIndex:1,flexWrap:"wrap",justifyContent:"center"}}>
+
+        {/* LEFT: Points leaderboard */}
+        <div style={{flex:1,minWidth:280}}>
+          <div style={{...PF,fontSize:"1.1rem",fontWeight:700,color:RED,marginBottom:10,letterSpacing:1}}>
+            🃏 Most Knowledgeable
+          </div>
+          <div style={{...OW,fontSize:"0.65rem",color:MUTED,letterSpacing:2,marginBottom:8}}>RANKED BY CORRECT ANSWERS</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {sorted.map((name,i)=>(
+              <div key={name} style={{background:i===0?CARD:CREAM2,border:`2px solid ${i===0?RED:BORDER}`,borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:9,boxShadow:i===0?"0 3px 12px rgba(139,26,26,.2)":undefined}}>
+                <span style={{fontSize:"1.1rem",minWidth:28}}>{medals[i]}</span>
+                <div style={{width:28,height:28,borderRadius:"50%",background:scores[name]?.color||"#888",flexShrink:0,border:`2px solid ${CREAM}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{...OW,fontWeight:700,fontSize:"0.75rem",color:"#fff"}}>{name[0]}</span>
+                </div>
+                <span style={{flex:1,...OW,fontSize:"0.85rem",letterSpacing:1,textTransform:"uppercase",textAlign:"left"}}>{name}</span>
+                <span style={{...PF,fontSize:"1.05rem",color:RED,fontWeight:700}}>{scores[name]?.score||0} pts</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{width:2,background:BORDER,borderRadius:2,alignSelf:"stretch",flexShrink:0,display:"none"}}/>
+
+        {/* RIGHT: Board finish order */}
+        <div style={{flex:1,minWidth:280}}>
+          <div style={{...PF,fontSize:"1.1rem",fontWeight:700,color:"#2d6a2d",marginBottom:10,letterSpacing:1}}>
+            🏆 Finish Line
+          </div>
+          <div style={{...OW,fontSize:"0.65rem",color:MUTED,letterSpacing:2,marginBottom:8}}>RANKED BY BOARD POSITION</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {boardOrder.map((name,i)=>{
+              const reached=( finishOrder||[]).includes(name);
+              const sq=(scores[name]?.pos||0)+1;
+              return(
+                <div key={name} style={{background:i===0&&reached?CARD:CREAM2,border:`2px solid ${i===0&&reached?"#2d6a2d":BORDER}`,borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:9,boxShadow:i===0&&reached?"0 3px 12px rgba(45,106,45,.2)":undefined}}>
+                  <span style={{fontSize:"1.1rem",minWidth:28}}>{reached?finishMedals[i]:"—"}</span>
+                  <div style={{width:28,height:28,borderRadius:"50%",background:scores[name]?.color||"#888",flexShrink:0,border:`2px solid ${CREAM}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span style={{...OW,fontWeight:700,fontSize:"0.75rem",color:"#fff"}}>{name[0]}</span>
+                  </div>
+                  <span style={{flex:1,...OW,fontSize:"0.85rem",letterSpacing:1,textTransform:"uppercase",textAlign:"left"}}>{name}</span>
+                  <span style={{...PF,fontSize:"1.05rem",color:reached?"#2d6a2d":MUTED,fontWeight:700}}>
+                    {reached?"✓ Finished":`sq ${sq}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {(finishOrder||[]).length===0&&(
+            <div style={{...PF,fontStyle:"italic",opacity:.5,fontSize:"0.85rem",marginTop:8}}>No one reached square 30 this game!</div>
+          )}
+        </div>
+      </div>
+
+      {!isPlayer&&reset&&(
+        <button style={btn({background:RED,color:"#fff",padding:"13px 32px",fontSize:"0.9rem",fontWeight:600,marginTop:24,position:"relative",zIndex:1,letterSpacing:2})} onClick={reset}>
+          PLAY AGAIN 🎰
+        </button>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
